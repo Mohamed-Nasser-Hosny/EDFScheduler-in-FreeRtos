@@ -186,6 +186,9 @@ typedef struct tskTaskControlBlock
 		implements a system-wide malloc() that must be provided with locks. */
 		struct 	_reent xNewLib_reent;
 	#endif
+	#if	( configUSE_EDF_SCHEDULER)
+		TickType_t xTaskPeriod;
+	#endif
 
 	#if ( configUSE_TASK_NOTIFICATIONS == 1 )
 		volatile uint32_t ulNotifiedValue;
@@ -212,6 +215,12 @@ static variables must be declared volatile. */
 PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB = NULL;
 
 /* Lists for ready and blocked tasks. --------------------*/
+
+//The following lines are custom and not included in original FreeRtos
+#if (configUSE_EDF_SCHEDULER == 1)	
+	PRIVILEGED_DATA static List_t ReadyTasksListsEDF;
+#endif	
+//End of custom additions
 PRIVILEGED_DATA static List_t pxReadyTasksLists[ configMAX_PRIORITIES ];/*< Prioritised ready tasks. */
 PRIVILEGED_DATA static List_t xDelayedTaskList1;						/*< Delayed tasks. */
 PRIVILEGED_DATA static List_t xDelayedTaskList2;						/*< Delayed tasks (two lists are used - one for delays that have overflowed the current tick count. */
@@ -386,10 +395,18 @@ count overflows. */
  * Place the task represented by pxTCB into the appropriate ready list for
  * the task.  It is inserted at the end of the list.
  */
-#define prvAddTaskToReadyList( pxTCB )																\
+#if (configUSE_EDF_SCHEDULER == 1)
+	#define prvAddTaskToReadyList( pxTCB )															\
+	traceMOVED_TASK_TO_READY_STATE( pxTCB );														\
+	taskRECORD_READY_PRIORITY( ( pxTCB )->uxPriority );												\
+	vListInsertEnd( &( ReadyTasksListsEDF ), &( ( pxTCB )->xGenericListItem ) )
+
+#else
+	#define prvAddTaskToReadyList( pxTCB )																\
 	traceMOVED_TASK_TO_READY_STATE( pxTCB );														\
 	taskRECORD_READY_PRIORITY( ( pxTCB )->uxPriority );												\
 	vListInsertEnd( &( pxReadyTasksLists[ ( pxTCB )->uxPriority ] ), &( ( pxTCB )->xGenericListItem ) )
+#endif	
 /*-----------------------------------------------------------*/
 
 /*
@@ -3003,7 +3020,12 @@ UBaseType_t uxPriority;
 	{
 		vListInitialise( &( pxReadyTasksLists[ uxPriority ] ) );
 	}
-
+	
+	//The following lines are custom and not included in original freeRtos
+	#if (configUSE_EDF_SCHEDULER == 1)
+		vListInitialise(&ReadyTasksListsEDF); // Initialize Ready Task List for EDFScheduler
+	#endif
+	//End of custom additions
 	vListInitialise( &xDelayedTaskList1 );
 	vListInitialise( &xDelayedTaskList2 );
 	vListInitialise( &xPendingReadyList );
