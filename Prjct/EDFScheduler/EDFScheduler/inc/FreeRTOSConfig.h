@@ -85,7 +85,6 @@
  *----------------------------------------------------------*/
 
 #define configUSE_PREEMPTION		1
-#define configUSE_TIME_SLICING		1
 #define configUSE_IDLE_HOOK			0
 #define configUSE_TICK_HOOK			0
 #define configCPU_CLOCK_HZ			( ( unsigned long ) 16000000 )
@@ -114,5 +113,9 @@ to exclude the API function. */
 #define INCLUDE_vTaskDelayUntil			1
 #define INCLUDE_vTaskDelay				1
 
+
+
+//Custom defines for EDF schedulers (not included originally in FreeRtos)
+#define configUSE_EDF_SCHEDULER 1
 
 #endif /* FREERTOS_CONFIG_H */
