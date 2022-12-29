@@ -399,7 +399,7 @@ count overflows. */
 	#define prvAddTaskToReadyList( pxTCB )															\
 	traceMOVED_TASK_TO_READY_STATE( pxTCB );														\
 	taskRECORD_READY_PRIORITY( ( pxTCB )->uxPriority );												\
-	vListInsertEnd( &( ReadyTasksListsEDF ), &( ( pxTCB )->xGenericListItem ) )
+	vListInsert( &( ReadyTasksListsEDF ), &( ( pxTCB )->xGenericListItem ) )
 
 #else
 	#define prvAddTaskToReadyList( pxTCB )																\
@@ -830,6 +830,9 @@ TickType_t currentTick = xTaskGetTickCount();
 
 		/* Setup the newly allocated TCB with the initial state of the task. */
 		prvInitialiseTCBVariables( pxNewTCB, pcName, uxPriority, xRegions, usStackDepth );
+		#if (configUSE_EDF_SCHEDULER == 1)
+			pxNewTCB -> xTaskPeriod = period;
+		#endif
 
 		/* Initialize the TCB stack to look as if the task was already running,
 		but had been interrupted by the scheduler.  The return address is set
@@ -887,14 +890,24 @@ TickType_t currentTick = xTaskGetTickCount();
 				so far. */
 				if( xSchedulerRunning == pdFALSE )
 				{
-					if( pxCurrentTCB->uxPriority <= uxPriority )
-					{
-						pxCurrentTCB = pxNewTCB;
-					}
-					else
-					{
-						mtCOVERAGE_TEST_MARKER();
-					}
+					
+					
+					#if (configUSE_EDF_SCHEDULER == 1)
+						if( pxCurrentTCB->xTaskPeriod >= period )
+						{
+							pxCurrentTCB = pxNewTCB;
+						}
+					
+					#else
+						if( pxCurrentTCB->uxPriority <= uxPriority )
+						{
+							pxCurrentTCB = pxNewTCB;
+						}
+					#endif	
+						else
+						{
+							mtCOVERAGE_TEST_MARKER();
+						}
 				}
 				else
 				{
@@ -910,14 +923,12 @@ TickType_t currentTick = xTaskGetTickCount();
 				pxNewTCB->uxTCBNumber = uxTaskNumber;
 			}
 			#endif /* configUSE_TRACE_FACILITY */
-			pxNewTCB -> xTaskPeriod = period;
+			
 			
 			traceTASK_CREATE( pxNewTCB );
 			
 			
-			
 			listSET_LIST_ITEM_VALUE(&((pxNewTCB)->xGenericListItem), ((pxNewTCB)->xTaskPeriod)+currentTick);
-			
 			prvAddTaskToReadyList( pxNewTCB );
 
 			xReturn = pdPASS;
@@ -2173,6 +2184,10 @@ TCB_t * pxTCB;
 TickType_t xItemValue;
 BaseType_t xSwitchRequired = pdFALSE;
 
+	#if (configUSE_EDF_SCHEDULER == 1)
+		pxTCB = prvGetTCBFromHandle(xTaskGetIdleTaskHandle());
+		listSET_LIST_ITEM_VALUE( &( ( pxTCB )->xGenericListItem ), (pxTCB)->xTaskPeriod + xTaskGetTickCount());
+	#endif
 	/* Called by the portable layer each time a tick interrupt occurs.
 	Increments the tick then checks to see if the new tick value will cause any
 	tasks to be unblocked. */
@@ -2255,6 +2270,9 @@ BaseType_t xSwitchRequired = pdFALSE;
 
 						/* Place the unblocked task into the appropriate ready
 						list. */
+						#if (configUSE_EDF_SCHEDULER == 1)
+							listSET_LIST_ITEM_VALUE( &( ( pxTCB )->xGenericListItem ), (pxTCB)->xTaskPeriod + xTaskGetTickCount());
+						#endif	
 						prvAddTaskToReadyList( pxTCB );
 
 						/* A task being unblocked cannot cause an immediate
@@ -2265,10 +2283,17 @@ BaseType_t xSwitchRequired = pdFALSE;
 							only be performed if the unblocked task has a
 							priority that is equal to or higher than the
 							currently executing task. */
-							if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
-							{
-								xSwitchRequired = pdTRUE;
-							}
+							#if (configUSE_EDF_SCHEDULER == 1)
+								if( pxTCB->xTaskPeriod <= pxCurrentTCB->xTaskPeriod )
+								{
+									xSwitchRequired = pdTRUE;
+								}
+							#else
+								if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+								{
+									xSwitchRequired = pdTRUE;
+								}
+							#endif	
 							else
 							{
 								mtCOVERAGE_TEST_MARKER();
@@ -3238,7 +3263,9 @@ UBaseType_t x;
 
 static void prvInitialiseTaskLists( void )
 {
-UBaseType_t uxPriority;
+	
+	
+	UBaseType_t uxPriority;
 
 	for( uxPriority = ( UBaseType_t ) 0U; uxPriority < ( UBaseType_t ) configMAX_PRIORITIES; uxPriority++ )
 	{
@@ -3246,6 +3273,7 @@ UBaseType_t uxPriority;
 	}
 	
 	//The following lines are custom and not included in original freeRtos
+		
 	#if (configUSE_EDF_SCHEDULER == 1)
 		vListInitialise(&ReadyTasksListsEDF); // Initialize Ready Task List for EDFScheduler
 	#endif

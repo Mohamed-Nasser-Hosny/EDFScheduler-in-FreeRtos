@@ -79,6 +79,7 @@ only for ports that are using the MPU. */
 	those files. */
 	#ifndef MPU_WRAPPERS_INCLUDED_FROM_API_FILE
 
+		#define xTaskPeriodicCreate				MPU_xTaskPeriodicCreate
 		#define xTaskGenericCreate				MPU_xTaskGenericCreate
 		#define vTaskAllocateMPURegions			MPU_vTaskAllocateMPURegions
 		#define vTaskDelete						MPU_vTaskDelete
